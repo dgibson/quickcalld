@@ -25,6 +25,8 @@ struct quickcall {
 	char *hiddev;
 	int hidfd;
 	char hidstate;
+
+	int mutestate;
 };
 
 #define QUICKCALL_USAGE_CALL	0xff000071
@@ -33,6 +35,12 @@ struct quickcall {
 #define QUICKCALL_USAGE_LEFT	0xff000077
 #define QUICKCALL_USAGE_RIGHT	0xff000076
 
+#define QUICKCALL_USAGE_LEDS	0xff000001
+
+#define QUICKCALL_LED_OFF	0
+#define QUICKCALL_LED_SLOWBLINK	1
+#define QUICKCALL_LED_FASTBLINK	2
+#define QUICKCALL_LED_ON	3
 
 void quickcall_do(const char *sysdir);
 void quickcall_hidpoll(struct quickcall *qc);
