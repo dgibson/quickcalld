@@ -29,11 +29,13 @@ struct quickcall {
 	int mutestate;
 };
 
-#define QUICKCALL_USAGE_CALL	0xff000071
-#define QUICKCALL_USAGE_MUTE	0xff000072
-#define QUICKCALL_USAGE_HANGUP	0xff000073
-#define QUICKCALL_USAGE_LEFT	0xff000077
-#define QUICKCALL_USAGE_RIGHT	0xff000076
+#define QUICKCALL_USAGE_CALL		0xff000071
+#define QUICKCALL_USAGE_MUTE		0xff000072
+#define QUICKCALL_USAGE_HANGUP		0xff000073
+#define QUICKCALL_USAGE_MIC		0xff000074
+#define QUICKCALL_USAGE_HEADPHONE	0xff000075
+#define QUICKCALL_USAGE_RIGHT		0xff000076
+#define QUICKCALL_USAGE_LEFT		0xff000077
 
 #define QUICKCALL_USAGE_LEDS	0xff000001
 
@@ -44,5 +46,7 @@ struct quickcall {
 
 void quickcall_do(const char *sysdir);
 void quickcall_hidpoll(struct quickcall *qc);
+
+void dump_audio(struct quickcall *qc);
 
 #endif /* _QUICKCALL_H */

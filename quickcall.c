@@ -232,5 +232,9 @@ void quickcall_do(const char *sysdir)
 
 	quickcall_open(qc);
 
+	usb_detach_kernel_driver_np(qc->handle, 0);
+	usb_detach_kernel_driver_np(qc->handle, 1);
+	usb_detach_kernel_driver_np(qc->handle, 2);
+
 	quickcall_hidpoll(qc);
 }

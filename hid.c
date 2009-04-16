@@ -45,14 +45,6 @@ static void update_leds(struct quickcall *qc)
 		 !qc->mutestate * QUICKCALL_LED_ON, 0);
 }
 
-static void print_btn(struct quickcall *qc, struct hiddev_event *ev, void *data)
-{
-	if (ev->value)
-		printf("%s pressed\n", (const char *)data);
-	else
-		printf("%s released\n", (const char *)data);
-}
-
 static void mute_btn(struct quickcall *qc, struct hiddev_event *ev, void *data)
 {
 	if (!ev->value)
@@ -62,18 +54,26 @@ static void mute_btn(struct quickcall *qc, struct hiddev_event *ev, void *data)
 	update_leds(qc);
 }
 
+static void audio_btn(struct quickcall *qc, struct hiddev_event *ev, void *data)
+{
+	dump_audio(qc);
+}
+
 static struct button_info {
 	unsigned usage;
 	char mask;
 	void (*fn)(struct quickcall *qc, struct hiddev_event *ev,
 		   void *data);
 	void *data;
+	const char *name;
 } button_table[] = {
-	{QUICKCALL_USAGE_CALL, 0x01, print_btn, "CALL"},
-	{QUICKCALL_USAGE_MUTE, 0x02, mute_btn, "MUTE"},
-	{QUICKCALL_USAGE_HANGUP, 0x04, print_btn, "HANGUP"},
-	{QUICKCALL_USAGE_LEFT, 0x08, print_btn, "LEFT"},
-	{QUICKCALL_USAGE_RIGHT, 0x10, print_btn, "RIGHT"},
+	{QUICKCALL_USAGE_CALL, 0x01, NULL, NULL, "CALL"},
+	{QUICKCALL_USAGE_MUTE, 0x02, mute_btn, NULL, "MUTE"},
+	{QUICKCALL_USAGE_HANGUP, 0x04, NULL, NULL, "HANGUP"},
+	{QUICKCALL_USAGE_MIC, 0x08, NULL, NULL, "MIC SOCKET"},
+	{QUICKCALL_USAGE_HEADPHONE, 0x10, NULL, NULL, "HEADPHONE SOCKET"},
+	{QUICKCALL_USAGE_RIGHT, 0x20, audio_btn, NULL, "RIGHT"},
+	{QUICKCALL_USAGE_LEFT, 0x40, audio_btn, NULL, "LEFT"},
 };
 
 static void process_event(struct quickcall *qc, struct hiddev_event *ev)
@@ -87,13 +87,21 @@ static void process_event(struct quickcall *qc, struct hiddev_event *ev)
 			signed int oldval = !!(qc->hidstate & btn->mask);
 
 			if (oldval != ev->value) {
+				if (ev->value)
+					debug("%s pressed\n", btn->name);
+				else
+					debug("%s released\n", btn->name);
+
 				qc->hidstate ^= btn->mask;
 
 				if (btn->fn)
 					btn->fn(qc, ev, btn->data);
 			}
+
+			return;
 		}
 	}
+	debug("Received unknown usage 0x%08x (%d)\n", ev->hid, ev->value);
 }
 
 void quickcall_hidpoll(struct quickcall *qc)
