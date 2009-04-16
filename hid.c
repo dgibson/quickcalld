@@ -52,11 +52,13 @@ static void mute_btn(struct quickcall *qc, struct hiddev_event *ev, void *data)
 
 	qc->mutestate = !qc->mutestate;
 	update_leds(qc);
+	quickcall_update_mute(qc);
 }
 
-static void audio_btn(struct quickcall *qc, struct hiddev_event *ev, void *data)
+static void volume_btn(struct quickcall *qc, struct hiddev_event *ev, void *data)
 {
-	dump_audio(qc);
+	int delta = (int)data;
+	quickcall_update_volume(qc, delta);
 }
 
 static struct button_info {
@@ -72,8 +74,8 @@ static struct button_info {
 	{QUICKCALL_USAGE_HANGUP, 0x04, NULL, NULL, "HANGUP"},
 	{QUICKCALL_USAGE_MIC, 0x08, NULL, NULL, "MIC SOCKET"},
 	{QUICKCALL_USAGE_HEADPHONE, 0x10, NULL, NULL, "HEADPHONE SOCKET"},
-	{QUICKCALL_USAGE_RIGHT, 0x20, audio_btn, NULL, "RIGHT"},
-	{QUICKCALL_USAGE_LEFT, 0x40, audio_btn, NULL, "LEFT"},
+	{QUICKCALL_USAGE_RIGHT, 0x20, volume_btn, (void *)(+1), "RIGHT"},
+	{QUICKCALL_USAGE_LEFT, 0x40, volume_btn, (void *)(-1), "LEFT"},
 };
 
 static void process_event(struct quickcall *qc, struct hiddev_event *ev)

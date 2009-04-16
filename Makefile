@@ -1,7 +1,7 @@
 TARGETS = quickcalld
 
 CFLAGS = -Wall -Werror $(CCANFLAGS) -I./
-LDLIBS = -lusb
+LDLIBS = -lusb -lasound
 
 OBJS = quickcall.o main.o lib.o hid.o audio.o
 

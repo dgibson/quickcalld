@@ -134,11 +134,59 @@ static char *find_hiddev(const char *sysdir)
 	return hiddev;
 }
 
+static char *find_alsadev(const char *sysdir)
+{
+	char *pattern, *tmp, *eptr, *ctldev;
+	glob_t gglob;
+	int rc;
+	struct stat sb;
+	int cardnum;
+
+	tmp = strrchr(sysdir, '/');
+	assert(tmp);
+
+	pattern = talloc_asprintf(NULL, "%s/%s:1.0/sound/card**",
+				  sysdir, tmp + 1);
+
+	rc = glob(pattern, GLOB_NOSORT, NULL, &gglob);
+	if (rc != 0)
+		die("glob(\"%s\") failed\n", pattern);
+
+	if (gglob.gl_pathc != 1)
+		die("%d matches for %s instead of expected 1\n",
+		    gglob.gl_pathc, pattern);
+
+	talloc_free(pattern);
+
+	tmp = strrchr(gglob.gl_pathv[0], '/');
+	assert(tmp);
+	tmp += 5; /* skip past "/card" */
+
+	cardnum = strtol(tmp, &eptr, 10);
+	if (*eptr)
+		die("Couldn't parse ALSA card number from \"%s\"\n",
+		    gglob.gl_pathv[0]);
+	globfree(&gglob);
+
+	/* Sanity check */
+	ctldev = talloc_asprintf(NULL, "/dev/snd/controlC%d", cardnum);
+	rc = stat(ctldev, &sb);
+	if (rc != 0)
+		die("Couldn't stat %s: %s\n", ctldev, strerror(errno));
+
+	if (!S_ISCHR(sb.st_mode))
+		die("%s is not a character device\n", ctldev);
+
+	talloc_free(ctldev);
+
+	return talloc_asprintf(NULL, "hw:%d", cardnum);
+}
+
 static struct quickcall *quickcall_probe(const char *sysdir)
 {
 	struct usb_bus *bus;
 	struct usb_device *dev;
-	char *hiddev;
+	char *hiddev, *alsadev;
 	struct quickcall *qc;
 
 	debug("Probing for Quickcall at %s\n", sysdir);
@@ -168,6 +216,9 @@ static struct quickcall *quickcall_probe(const char *sysdir)
 
 	debug("Quickcall hiddev is %s\n", hiddev);
 
+	alsadev = find_alsadev(sysdir);
+	debug("ALSA device is %s\n", alsadev);
+
 	qc = talloc_zero(NULL, struct quickcall);
 	if (!qc)
 		die("Couldn't allocate memory\n");
@@ -177,6 +228,8 @@ static struct quickcall *quickcall_probe(const char *sysdir)
 	qc->dev = dev;
 	qc->hiddev = hiddev;
 	talloc_steal(qc, hiddev);
+	qc->alsadev = alsadev;
+	talloc_steal(qc, alsadev);
 	
 	return qc;
 }
@@ -197,6 +250,10 @@ static void quickcall_open(struct quickcall *qc)
 	if (qc->hidfd < 0)
 		die("Couldn't open %s: %s\n", qc->hiddev, strerror(errno));
 	debug("Opened Quickcall hiddev (fd=%d)\n", qc->hidfd);
+
+	rc = snd_ctl_open(&qc->alsactl, qc->alsadev, 0);
+	if (rc != 0)
+		die("Error on snd_ctl_open(): %s\n", strerror(errno));
 
 	/* Initialize the hardware */
 	rc = usb_control_msg(qc->handle,
@@ -231,10 +288,6 @@ void quickcall_do(const char *sysdir)
 		return; /* This device wasn't a Quickcall */
 
 	quickcall_open(qc);
-
-	usb_detach_kernel_driver_np(qc->handle, 0);
-	usb_detach_kernel_driver_np(qc->handle, 1);
-	usb_detach_kernel_driver_np(qc->handle, 2);
 
 	quickcall_hidpoll(qc);
 }

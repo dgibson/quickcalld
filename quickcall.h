@@ -1,6 +1,11 @@
 #ifndef _QUICKCALL_H
 #define _QUICKCALL_H
 
+#include <usb.h>
+#include <alsa/asoundlib.h>
+#include <linux/types.h>
+#include <linux/hiddev.h>
+
 #define SYSFS_PATH "/sys"
 
 #define QUICKCALL_VENDORID	0x046d
@@ -26,7 +31,11 @@ struct quickcall {
 	int hidfd;
 	char hidstate;
 
+	char *alsadev;
+	snd_ctl_t *alsactl;
+
 	int mutestate;
+
 };
 
 #define QUICKCALL_USAGE_CALL		0xff000071
@@ -44,9 +53,15 @@ struct quickcall {
 #define QUICKCALL_LED_FASTBLINK	2
 #define QUICKCALL_LED_ON	3
 
+#define QUICKCALL_ALSACTL_OUTPUT_MUTE	1
+#define QUICKCALL_ALSACTL_OUTPUT_VOL	2
+#define QUICKCALL_ALSACTL_INPUT_MUTE	3
+#define QUICKCALL_ALSACTL_INPUT_VOL	4
+
 void quickcall_do(const char *sysdir);
 void quickcall_hidpoll(struct quickcall *qc);
 
-void dump_audio(struct quickcall *qc);
+void quickcall_update_mute(struct quickcall *qc);
+void quickcall_update_volume(struct quickcall *qc, int delta);
 
 #endif /* _QUICKCALL_H */
