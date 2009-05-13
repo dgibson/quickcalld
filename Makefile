@@ -1,20 +1,25 @@
-TARGETS = quickcalld
+PREFIX = /usr/local
+INSTALLROOT = 
 
-CFLAGS = -Wall -Werror $(CCANFLAGS) -I./
+CFLAGS = -O2 -Wall $(CCANFLAGS) -I./
 LDLIBS = -lusb -lasound
 
+TARGETS = quickcalld
 OBJS = quickcall.o main.o lib.o hid.o audio.o
+RULESTEMPLATE = quickcall.rules
+RULESFILE = /etc/udev/rules.d/85-$(RULESTEMPLATE)
 
 all: $(TARGETS)
 
 quickcalld: $(OBJS) libccan.a
 	$(LINK.c) -o $@ $^ $(LDLIBS)
 
+install: all
+	install -m 755 quickcalld $(INSTALLROOT)$(PREFIX)/sbin/quickcalld
+	sed 's/@QUICKCALLD@/$(PREFIX)/sbin/quickcalld/' $(RULESTEMPLATE) > $(RULESFILE)
+
 go: all
 	./quickcalld $$(udevadm trigger --verbose --subsystem-match=usb --attr-match=idVendor=046d --attr-match=idProduct=08d5)
-
-sgo: all
-	strace ./quickcalld $$(udevadm trigger --verbose --subsystem-match=usb --attr-match=idVendor=046d --attr-match=idProduct=08d5)
 
 clean: ccanclean
 	rm -f $(TARGETS)

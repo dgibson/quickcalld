@@ -76,6 +76,7 @@ static struct button_info {
 	{QUICKCALL_USAGE_HEADPHONE, 0x10, NULL, NULL, "HEADPHONE SOCKET"},
 	{QUICKCALL_USAGE_RIGHT, 0x20, volume_btn, (void *)(+1), "RIGHT"},
 	{QUICKCALL_USAGE_LEFT, 0x40, volume_btn, (void *)(-1), "LEFT"},
+	{QUICKCALL_USAGE_MYSTERY, 0x80,NULL, NULL, "MYSTERY"},
 };
 
 static void process_event(struct quickcall *qc, struct hiddev_event *ev)
