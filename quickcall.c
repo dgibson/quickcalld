@@ -5,6 +5,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <syslog.h>
 #include <sys/stat.h>
 
 #include <glob.h>
@@ -285,9 +286,11 @@ void quickcall_do(const char *sysdir)
 
 	qc = quickcall_probe(sysdir);
 	if (!qc)
-		return; /* This device wasn't a Quickcall */
+		die("Invoked on %s which is not a Quickcall device\n", sysdir);
 
 	quickcall_open(qc);
+
+	log_printf(LOG_NOTICE, "Running on Quickcall device at %s\n", sysdir);
 
 	quickcall_hidpoll(qc);
 }

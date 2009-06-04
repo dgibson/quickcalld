@@ -2,17 +2,48 @@
 #include <stdlib.h>
 #include <stdarg.h>
 
+#include <syslog.h>
+
 #include <ccan/talloc/talloc.h>
 #include <ccan/grab_file/grab_file.h>
 
 #include "lib.h"
+
+static FILE *logfile;
+int verbose = 0;
+
+void log_init(FILE *f)
+{
+	logfile = f;
+
+	if (!f)
+		openlog("quickcalld", LOG_PID, LOG_DAEMON);
+}
+
+void log_vprintf(int priority, const char *fmt, va_list ap)
+{	
+	if (logfile)
+		vfprintf(logfile, fmt, ap);
+	else
+		vsyslog(priority, fmt, ap);
+}
+
+void log_printf(int priority, const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	log_vprintf(priority, fmt, ap);
+	va_end(ap);
+}
 
 void debug(const char *fmt, ...)
 {
 	va_list ap;
 
 	va_start(ap, fmt);
-	vfprintf(stderr, fmt, ap);
+	if (verbose)
+		log_vprintf(LOG_DEBUG, fmt, ap);
 	va_end(ap);
 }
 
@@ -21,7 +52,7 @@ void __attribute__((noreturn)) __attribute__((format(printf, 1, 2))) die(char *f
 	va_list ap;
 
 	va_start(ap, fmt);
-	vfprintf(stderr, fmt, ap);
+	log_vprintf(LOG_ERR, fmt, ap);
 	va_end(ap);
 	exit(1);
 }
