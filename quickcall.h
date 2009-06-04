@@ -59,7 +59,8 @@ struct quickcall {
 #define QUICKCALL_ALSACTL_INPUT_MUTE	3
 #define QUICKCALL_ALSACTL_INPUT_VOL	4
 
-void quickcall_do(const char *sysdir);
+struct quickcall *quickcall_probe(const char *sysdir);
+void quickcall_open(struct quickcall *qc);
 void quickcall_hidpoll(struct quickcall *qc);
 
 void quickcall_update_mute(struct quickcall *qc);

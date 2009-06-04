@@ -5,7 +5,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <syslog.h>
 #include <sys/stat.h>
 
 #include <glob.h>
@@ -183,7 +182,7 @@ static char *find_alsadev(const char *sysdir)
 	return talloc_asprintf(NULL, "hw:%d", cardnum);
 }
 
-static struct quickcall *quickcall_probe(const char *sysdir)
+struct quickcall *quickcall_probe(const char *sysdir)
 {
 	struct usb_bus *bus;
 	struct usb_device *dev;
@@ -235,7 +234,7 @@ static struct quickcall *quickcall_probe(const char *sysdir)
 	return qc;
 }
 
-static void quickcall_open(struct quickcall *qc)
+void quickcall_open(struct quickcall *qc)
 {
 	char outbuf = 0x01;
 	char inbuf[2];
@@ -276,21 +275,4 @@ static void quickcall_open(struct quickcall *qc)
 	debug("Hardware initialization complete (0x81 -> 0x%02x,0x%02x)\n",
 	      inbuf[0], inbuf[1]);
 	
-}
-
-void quickcall_do(const char *sysdir)
-{
-	struct quickcall *qc;
-
-	debug("Probing %s...\n", sysdir);
-
-	qc = quickcall_probe(sysdir);
-	if (!qc)
-		die("Invoked on %s which is not a Quickcall device\n", sysdir);
-
-	quickcall_open(qc);
-
-	log_printf(LOG_NOTICE, "Running on Quickcall device at %s\n", sysdir);
-
-	quickcall_hidpoll(qc);
 }

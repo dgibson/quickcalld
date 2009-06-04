@@ -3,8 +3,11 @@
 #include <stdarg.h>
 
 #include <unistd.h>
+#include <syslog.h>
 
 #include <usb.h>
+
+#include <ccan/daemonize/daemonize.h>
 
 #include "lib.h"
 #include "quickcall.h"
@@ -13,6 +16,8 @@ int main(int argc, char *argv[])
 {
 	int opt;
 	FILE *logfile = stderr;
+	struct quickcall *qc;
+	const char *sysdir;
 
 	log_init(stderr);
 
@@ -42,7 +47,25 @@ int main(int argc, char *argv[])
 	usb_find_busses();
     	usb_find_devices();
 
-	quickcall_do(argv[optind]);
+	sysdir = argv[optind];
+
+	debug("Probing %s...\n", sysdir);
+
+	qc = quickcall_probe(sysdir);
+	if (!qc)
+		die("Invoked on %s which is not a Quickcall device\n", sysdir);
+
+	quickcall_open(qc);
+
+	if (!daemonize())
+		die("Failed to daemonize: %s\n", strerror(errno));
+
+	if (logfile == stderr)
+		log_init(NULL); /* Switch logging to syslog */
+
+	log_printf(LOG_NOTICE, "Running on Quickcall device at %s\n", sysdir);
+
+	quickcall_hidpoll(qc);
 
 	exit(0);
 }
