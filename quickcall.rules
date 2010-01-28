@@ -1,0 +1,1 @@
+SUBSYSTEM=="usb", ACTION=="add", ATTR{idVendor}=="046d", ATTR{idProduct}=="08d5", RUN+="@QUICKCALLD@ -u -v %S%p"

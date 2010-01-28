@@ -4,6 +4,7 @@
 
 #include <unistd.h>
 #include <syslog.h>
+#include <sys/wait.h>
 
 #include <usb.h>
 
@@ -12,8 +13,30 @@
 #include "lib.h"
 #include "quickcall.h"
 
+void udev_wait(FILE *logfile)
+{
+	if (!daemonize())
+		die("Failed to daemonize: %s\n", strerror(errno));
+
+	if (logfile == stderr)
+		log_init(NULL); /* Switch logging to syslog */
+
+	/*
+	 * FIXME.  This is wrong, bad, evil hack.
+	 * 
+	 * The right thing to do here is to wait for udev to complete
+	 * processing all the deivces we need.  Unfortunately that
+	 * would mean monitoring udev events, then checking to see
+	 * which devices are there, then reading the monitored events
+	 * until the 3 devices we need (usb interface, hiddev, and
+	 * sound) all appear.  Or we can just do the wrong thing:
+	 */
+	sleep(1);
+}
+
 int main(int argc, char *argv[])
 {
+	int wait_for_udev = 0;
 	int opt;
 	FILE *logfile = stderr;
 	struct quickcall *qc;
@@ -21,7 +44,7 @@ int main(int argc, char *argv[])
 
 	log_init(stderr);
 
-	while ((opt = getopt(argc, argv, "vl:")) != -1) {
+	while ((opt = getopt(argc, argv, "vl:u")) != -1) {
 		switch (opt) {
 		case 'v':
 			verbose = 1;
@@ -33,6 +56,9 @@ int main(int argc, char *argv[])
 				    optarg, strerror(errno));
 			log_init(logfile);
 			break;
+		case 'u':
+			wait_for_udev = 1;
+			break;
 		default:
 			exit(2);
 		}
@@ -40,7 +66,10 @@ int main(int argc, char *argv[])
 
 
 	if (optind != (argc - 1))
-		die("Usage: quickcalld [-v] [-l <logfile>] <sysfs dir>\n");
+		die("Usage: quickcalld [-u] [-v] [-l <logfile>] <sysfs dir>\n");
+
+	if (wait_for_udev)
+		udev_wait(logfile);
 
 	/* Initialize libusb */
 	usb_init();
@@ -57,7 +86,8 @@ int main(int argc, char *argv[])
 
 	quickcall_open(qc);
 
-	if (!daemonize())
+	/* Daemonize if we didn't do so already */
+	if (!wait_for_udev && !daemonize())
 		die("Failed to daemonize: %s\n", strerror(errno));
 
 	if (logfile == stderr)
