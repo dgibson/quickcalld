@@ -33,11 +33,11 @@ static void set_leds(struct quickcall *qc, int red, int green, int blue)
 
 	rc = ioctl(qc->hidfd, HIDIOCSUSAGE, &ref);
 	if (rc)
-		die("Error on HIDIOCSUSAGE: %s\n", strerror(errno));
+		die("Error on HIDIOCSUSAGE (fd=%d): %s\n", qc->hidfd, strerror(errno));
 
 	rc = ioctl(qc->hidfd, HIDIOCSREPORT, &ri);
 	if (rc)
-		die("Error on HIDIOCSREPORT: %s\n", strerror(errno));
+		die("Error on HIDIOCSREPORT (fd=%d): %s\n", qc->hidfd, strerror(errno));
 }
 
 static void update_leds(struct quickcall *qc)
