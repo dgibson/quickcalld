@@ -1,8 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <string.h>
 
+#include <unistd.h>
+#include <errno.h>
 #include <syslog.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #include <ccan/talloc/talloc.h>
 #include <ccan/grab_file/grab_file.h>
@@ -80,4 +85,3 @@ int get_sys_attrib(const char *sysdir, const char *attrib, int base, long *val)
 	talloc_free(name);
 	return rc;
 }
-
