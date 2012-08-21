@@ -113,7 +113,7 @@ static char *find_hiddev(const char *sysdir)
 		die("glob(\"%s\") failed\n", pattern);
 
 	if (gglob.gl_pathc != 1)
-		die("%d matches for %s instead of expected 1\n",
+		die("%zd matches for %s instead of expected 1\n",
 		    gglob.gl_pathc, pattern);
 
 	talloc_free(pattern);
@@ -154,7 +154,7 @@ static char *find_alsadev(const char *sysdir)
 		die("glob(\"%s\") failed\n", pattern);
 
 	if (gglob.gl_pathc != 1)
-		die("%d matches for %s instead of expected 1\n",
+		die("%zd matches for %s instead of expected 1\n",
 		    gglob.gl_pathc, pattern);
 
 	talloc_free(pattern);
