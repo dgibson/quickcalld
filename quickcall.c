@@ -105,7 +105,7 @@ static char *find_hiddev(const char *sysdir)
 	tmp = strrchr(sysdir, '/');
 	assert(tmp);
 
-	pattern = talloc_asprintf(NULL, "%s/%s:1.3/usb/hiddev*",
+	pattern = talloc_asprintf(NULL, "%s/%s:1.3/usb*/hiddev*",
 				  sysdir, tmp + 1);
 
 	rc = glob(pattern, GLOB_NOSORT, NULL, &gglob);
