@@ -18,7 +18,7 @@ void udev_wait(FILE *logfile, int dont_detach)
 	if (!dont_detach && !daemonize())
 		die("Failed to daemonize: %s\n", strerror(errno));
 
-	if (logfile == stderr)
+	if (!dont_detach && logfile == stderr)
 		log_init(NULL); /* Switch logging to syslog */
 
 	/*
@@ -94,7 +94,7 @@ int main(int argc, char *argv[])
 	if (!wait_for_udev && !dont_detach && !daemonize())
 		die("Failed to daemonize: %s\n", strerror(errno));
 
-	if (logfile == stderr)
+	if (!dont_detach && logfile == stderr)
 		log_init(NULL); /* Switch logging to syslog */
 
 	log_printf(LOG_NOTICE, "Running on Quickcall device at %s\n", sysdir);
