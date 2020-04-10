@@ -13,9 +13,9 @@
 #include "lib.h"
 #include "quickcall.h"
 
-void udev_wait(FILE *logfile)
+void udev_wait(FILE *logfile, int dont_detach)
 {
-	if (!daemonize())
+	if (!dont_detach && !daemonize())
 		die("Failed to daemonize: %s\n", strerror(errno));
 
 	if (logfile == stderr)
@@ -37,6 +37,7 @@ void udev_wait(FILE *logfile)
 int main(int argc, char *argv[])
 {
 	int wait_for_udev = 0;
+	int dont_detach = 0;
 	int opt;
 	FILE *logfile = stderr;
 	struct quickcall *qc;
@@ -44,8 +45,11 @@ int main(int argc, char *argv[])
 
 	log_init(stderr);
 
-	while ((opt = getopt(argc, argv, "vl:u")) != -1) {
+	while ((opt = getopt(argc, argv, "vl:ud")) != -1) {
 		switch (opt) {
+		case 'd':
+			dont_detach = 1;
+			break;
 		case 'v':
 			verbose = 1;
 			break;
@@ -66,10 +70,10 @@ int main(int argc, char *argv[])
 
 
 	if (optind != (argc - 1))
-		die("Usage: quickcalld [-u] [-v] [-l <logfile>] <sysfs dir>\n");
+		die("Usage: quickcalld [-u] [-v] [-d] [-l <logfile>] <sysfs dir>\n");
 
 	if (wait_for_udev)
-		udev_wait(logfile);
+		udev_wait(logfile, dont_detach);
 
 	/* Initialize libusb */
 	usb_init();
@@ -87,7 +91,7 @@ int main(int argc, char *argv[])
 	quickcall_open(qc);
 
 	/* Daemonize if we didn't do so already */
-	if (!wait_for_udev && !daemonize())
+	if (!wait_for_udev && !dont_detach && !daemonize())
 		die("Failed to daemonize: %s\n", strerror(errno));
 
 	if (logfile == stderr)
