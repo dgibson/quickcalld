@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include <errno.h>
+#include <syslog.h>
 
 #include "lib.h"
 #include "quickcall.h"
@@ -18,9 +19,12 @@ static int get_alsa_ctl(struct quickcall *qc, int elem)
 	snd_ctl_elem_value_set_numid(elem_val, elem);
 
 	rc = snd_ctl_elem_read(qc->alsactl, elem_val);
-	if (rc != 0)
-		die("Error on snd_ctl_elem_read(), element %d: %s\n",
-		    elem, strerror(errno));
+	if (rc != 0) {
+		log_printf(LOG_ERR,
+			   "Error on snd_ctl_elem_read(), element %d: %s\n",
+			   elem, strerror(errno));
+		return 0;
+	}
 
 
 	switch (elem) {
@@ -64,7 +68,8 @@ static void set_alsa_ctl(struct quickcall *qc, int elem, int val)
 
 	rc = snd_ctl_elem_write(qc->alsactl, elem_val);
 	if (rc)
-		die("Error on snd_ctl_elem_write(): %s\n", strerror(errno));
+		log_printf(LOG_ERR, "Error on snd_ctl_elem_write(): %s\n",
+			   strerror(errno));
 }
 
 void quickcall_update_mute(struct quickcall *qc)
@@ -91,8 +96,10 @@ void dump_audio(struct quickcall *qc)
 		snd_ctl_elem_value_set_numid(val, i);
 		rc = snd_ctl_elem_read(qc->alsactl, val);
 		if (rc != 0)
-			die("Error on snd_ctl_elem_read(), element %d\n", i);
-		if (i % 2) {
+			log_printf(LOG_ERR,
+				   "Error on snd_ctl_elem_read(), element %d\n",
+				   i);
+		else if (i % 2) {
 			debug("Element %d (boolean?): %s\n", i,
 			      snd_ctl_elem_value_get_boolean(val, 0) ? "on" : "off");
 		} else {

@@ -4,7 +4,7 @@ INSTALLROOT =
 QUICKCALLD = $(PREFIX)/sbin/quickcalld
 RULESFILE = /etc/udev/rules.d/85-$(RULESTEMPLATE)
 
-CFLAGS = -O2 -Wall $(CCANFLAGS) -I./
+CFLAGS = -ggdb -Wall $(CCANFLAGS) -I./
 LDLIBS = -lusb -lasound
 
 TARGETS = quickcalld

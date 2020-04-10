@@ -5,6 +5,7 @@
 
 #include <errno.h>
 #include <sys/ioctl.h>
+#include <syslog.h>
 
 #include <linux/types.h>
 #include <linux/hiddev.h>
@@ -33,11 +34,13 @@ static void set_leds(struct quickcall *qc, int red, int green, int blue)
 
 	rc = ioctl(qc->hidfd, HIDIOCSUSAGE, &ref);
 	if (rc)
-		die("Error on HIDIOCSUSAGE (fd=%d): %s\n", qc->hidfd, strerror(errno));
+		log_printf(LOG_ERR, "Error on HIDIOCSUSAGE (fd=%d): %s\n",
+			   qc->hidfd, strerror(errno));
 
 	rc = ioctl(qc->hidfd, HIDIOCSREPORT, &ri);
 	if (rc)
-		die("Error on HIDIOCSREPORT (fd=%d): %s\n", qc->hidfd, strerror(errno));
+		log_printf(LOG_ERR, "Error on HIDIOCSREPORT (fd=%d): %s\n",
+			   qc->hidfd, strerror(errno));
 }
 
 static void update_leds(struct quickcall *qc)
@@ -118,12 +121,12 @@ void quickcall_hidpoll(struct quickcall *qc)
 	while (1) {
 		rc = read(qc->hidfd, &ev, sizeof(ev));
 		if (rc < 0)
-			die("Error reading from %s: %s\n",
+			log_printf(LOG_ERR, "Error reading from %s: %s\n",
 			    qc->hiddev, strerror(errno));
-		if (rc == 0)
+		else if (rc == 0)
 			return; /* EOF */
-		if (rc != sizeof(ev))
-			die("Short read from %s\n", qc->hiddev);
+		else if (rc != sizeof(ev))
+			log_printf(LOG_ERR, "Short read from %s\n", qc->hiddev);
 
 		process_event(qc, &ev);
 	}
