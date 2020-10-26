@@ -1,6 +1,6 @@
+#include "config.h"
 #include <stdio.h>
 #include <string.h>
-#include "config.h"
 
 /**
  * build_assert - routines for build-time assertions
@@ -26,14 +26,15 @@
  *		int x;
  *	};
  *
- *	char *foo_string(struct foo *foo)
+ *	static char *foo_string(struct foo *foo)
  *	{
  *		// This trick requires that the string be first in the structure
  *		BUILD_ASSERT(offsetof(struct foo, string) == 0);
  *		return (char *)foo;
  *	}
  *
- * Licence: LGPL (2 or any later version)
+ * License: CC0 (Public domain)
+ * Author: Rusty Russell <rusty@rustcorp.com.au>
  */
 int main(int argc, char *argv[])
 {

@@ -1,3 +1,4 @@
+/* CC0 (Public domain) - see LICENSE file for details */
 #ifndef NOERR_H
 #define NOERR_H
 #include <stdio.h>
@@ -29,4 +30,12 @@ int fclose_noerr(FILE *fp);
  */
 int unlink_noerr(const char *pathname);
 
+/**
+ * free_noerr - free memory without stomping errno.
+ * @p: the pointer to free.
+ *
+ * errno is saved and restored across the call to free: the standard leaves
+ * that undefined.
+ */
+void free_noerr(void *p);
 #endif /* NOERR_H */

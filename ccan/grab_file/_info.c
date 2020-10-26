@@ -1,6 +1,6 @@
+#include "config.h"
 #include <stdio.h>
 #include <string.h>
-#include "config.h"
 
 /**
  * grab_file - file helper routines
@@ -35,7 +35,8 @@
  *		return 0;
  *	}
  *
- * Licence: LGPL (2 or any later version)
+ * License: LGPL (v2.1 or any later version)
+ * Author: Rusty Russell <rusty@rustcorp.com.au>
  */
 int main(int argc, char *argv[])
 {
@@ -43,7 +44,6 @@ int main(int argc, char *argv[])
 		return 1;
 
 	if (strcmp(argv[1], "depends") == 0) {
-		printf("ccan/str_talloc\n"); /* Needed for tests. */
 		printf("ccan/talloc\n");
 		printf("ccan/noerr\n");
 		return 0;

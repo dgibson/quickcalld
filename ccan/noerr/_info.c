@@ -1,6 +1,6 @@
+#include "config.h"
 #include <stdio.h>
 #include <string.h>
-#include "config.h"
 
 /**
  * noerr - routines for cleaning up without blatting errno
@@ -19,7 +19,7 @@
  *	#include <errno.h>
  *	#include <ccan/noerr/noerr.h>
  *
- *	bool write_string_to_file(const char *file, const char *string)
+ *	static bool write_string_to_file(const char *file, const char *string)
  *	{
  *		int ret, fd = open(file, O_WRONLY|O_CREAT|O_EXCL, 0600);
  *		if (fd < 0)
@@ -37,7 +37,7 @@
  *			return false;
  *		}
  *		// A short write means out of space.
- *		if (ret < strlen(string)) {
+ *		if (ret < (int)strlen(string)) {
  *			unlink(file);
  *			errno = ENOSPC;
  *			return false;
@@ -45,7 +45,8 @@
  *		return true;
  *	}
  *
- * Licence: LGPL (2 or any later version)
+ * License: CC0 (Public domain)
+ * Author: Rusty Russell <rusty@rustcorp.com.au>
  */
 int main(int argc, char *argv[])
 {

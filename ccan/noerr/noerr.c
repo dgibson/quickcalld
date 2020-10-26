@@ -1,6 +1,8 @@
+/* CC0 (Public domain) - see LICENSE file for details */
 #include "noerr.h"
 #include <unistd.h>
 #include <errno.h>
+#include <stdlib.h>
 
 int close_noerr(int fd)
 {
@@ -39,4 +41,11 @@ int unlink_noerr(const char *pathname)
 
 	errno = saved_errno;
 	return ret;
+}
+
+void free_noerr(void *p)
+{
+	int saved_errno = errno;
+	free(p);
+	errno = saved_errno;
 }

@@ -43,7 +43,7 @@
 #define ALWAYS_REALLOC 0
 
 
-#define MAX_TALLOC_SIZE 0x10000000
+#define MAX_TALLOC_SIZE 0x7FFFFFFF
 #define TALLOC_MAGIC 0xe814ec70
 #define TALLOC_FLAG_FREE 0x01
 #define TALLOC_FLAG_LOOP 0x02
@@ -81,6 +81,10 @@
 */
 static void *null_context;
 static pid_t *autofree_context;
+
+static void *(*tc_malloc)(size_t size) = malloc;
+static void (*tc_free)(void *ptr) = free;
+static void *(*tc_realloc)(void *ptr, size_t size) = realloc;
 
 static void *(*tc_external_realloc)(const void *parent, void *ptr, size_t size);
 static void (*tc_lock)(const void *ctx);
@@ -283,7 +287,7 @@ static inline void *__talloc(const void *context, size_t size)
 		}
 	}
 
-	tc = (struct talloc_chunk *)malloc(TC_HDR_SIZE+size);
+	tc = (struct talloc_chunk *)tc_malloc(TC_HDR_SIZE+size);
 alloc_done:
 	return init_talloc(parent, tc, size, external);
 }
@@ -469,7 +473,7 @@ static void *__talloc_steal(const void *new_ctx, const void *ptr)
 /* 
    internal talloc_free call
 */
-static inline int _talloc_free(void *ptr)
+static inline int _talloc_free(const void *ptr)
 {
 	struct talloc_chunk *tc;
 	void *oldparent = NULL;
@@ -508,7 +512,7 @@ static inline int _talloc_free(void *ptr)
 			return -1;
 		}
 		tc->destructor = (talloc_destructor_t)-1;
-		if (d(ptr) == -1) {
+		if (d(discard_const_p(void, ptr)) == -1) {
 			tc->destructor = d;
 			return -1;
 		}
@@ -538,13 +542,28 @@ static inline int _talloc_free(void *ptr)
 		   final choice is the null context. */
 		void *child = TC_PTR_FROM_CHUNK(tc->child);
 		const void *new_parent = null_context;
+		struct talloc_chunk *old_parent = NULL;
 		if (unlikely(tc->child->refs)) {
 			struct talloc_chunk *p = talloc_parent_chunk(tc->child->refs);
 			if (p) new_parent = TC_PTR_FROM_CHUNK(p);
 		}
+		/* finding the parent here is potentially quite
+		   expensive, but the alternative, which is to change
+		   talloc to always have a valid tc->parent pointer,
+		   makes realloc more expensive where there are a
+		   large number of children.
+
+		   The reason we need the parent pointer here is that
+		   if _talloc_free_internal() fails due to references
+		   or a failing destructor we need to re-parent, but
+		   the free call can invalidate the prev pointer.
+		*/
+		if (new_parent == null_context && (tc->child->refs || tc->child->destructor)) {
+			old_parent = talloc_parent_chunk(ptr);
+		}
 		if (unlikely(_talloc_free(child) == -1)) {
 			if (new_parent == null_context) {
-				struct talloc_chunk *p = talloc_parent_chunk(ptr);
+				struct talloc_chunk *p = old_parent;
 				if (p) new_parent = TC_PTR_FROM_CHUNK(p);
 			}
 			__talloc_steal(new_parent, child);
@@ -556,7 +575,7 @@ static inline int _talloc_free(void *ptr)
 	if (unlikely(tc->flags & TALLOC_FLAG_EXT_ALLOC))
 		tc_external_realloc(oldparent, tc, 0);
 	else
-		free(tc);
+		tc_free(tc);
 
 	return 0;
 }
@@ -602,7 +621,7 @@ static inline int talloc_unreference(const void *context, const void *ptr)
 
 /*
   remove a specific parent context from a pointer. This is a more
-  controlled varient of talloc_free()
+  controlled variant of talloc_free()
 */
 int talloc_unlink(const void *context, void *ptr)
 {
@@ -664,7 +683,7 @@ int talloc_unlink(const void *context, void *ptr)
 /*
   add a name to an existing pointer - va_list version
 */
-static inline const char *talloc_set_name_v(const void *ptr, const char *fmt, va_list ap) PRINTF_ATTRIBUTE(2,0);
+static inline const char *talloc_set_name_v(const void *ptr, const char *fmt, va_list ap) PRINTF_FMT(2,0);
 
 static inline const char *talloc_set_name_v(const void *ptr, const char *fmt, va_list ap)
 {
@@ -789,6 +808,39 @@ void *_talloc(const void *context, size_t size)
 	return __talloc(context, size);
 }
 
+static int talloc_destroy_pointer(void ***pptr)
+{
+	if ((uintptr_t)**pptr < (uintptr_t)sysconf(_SC_PAGESIZE))
+		TALLOC_ABORT("Double free or invalid talloc_set?");
+	/* Invalidate pointer so it can't be used again. */
+	**pptr = (void *)1;
+	return 0;
+}
+
+void _talloc_set(void *ptr, const void *ctx, size_t size, const char *name)
+{
+	void ***child;
+	void *p;
+
+	p = talloc_named_const(ctx, size, name);
+	if (unlikely(!p))
+		goto set_ptr;
+
+	child = talloc(p, void **);
+	if (unlikely(!child)) {
+		talloc_free(p);
+		p = NULL;
+		goto set_ptr;
+	}
+	*child = ptr;
+	talloc_set_name_const(child, "talloc_set destructor");
+	talloc_set_destructor(child, talloc_destroy_pointer);
+
+set_ptr:
+	/* memcpy rather than cast avoids aliasing problems. */
+	memcpy(ptr, &p, sizeof(p));
+}
+
 /*
   externally callable talloc_set_name_const()
 */
@@ -819,12 +871,12 @@ void *talloc_named_const(const void *context, size_t size, const char *name)
    will not be freed if the ref_count is > 1 or the destructor (if
    any) returns non-zero
 */
-int talloc_free(void *ptr)
+int talloc_free(const void *ptr)
 {
 	int saved_errno = errno, ret;
 
 	lock(ptr);
-	ret = _talloc_free(ptr);
+	ret = _talloc_free(discard_const_p(void, ptr));
 	unlock();
 	if (ret == 0)
 		errno = saved_errno;
@@ -875,13 +927,13 @@ void *_talloc_realloc(const void *context, void *ptr, size_t size, const char *n
 		tc->flags |= TALLOC_FLAG_FREE;
 
 #if ALWAYS_REALLOC
-		new_ptr = malloc(size + TC_HDR_SIZE);
+		new_ptr = tc_malloc(size + TC_HDR_SIZE);
 		if (new_ptr) {
 			memcpy(new_ptr, tc, tc->size + TC_HDR_SIZE);
-			free(tc);
+			tc_free(tc);
 		}
 #else
-		new_ptr = realloc(tc, size + TC_HDR_SIZE);
+		new_ptr = tc_realloc(tc, size + TC_HDR_SIZE);
 #endif
 	}
 
@@ -1563,6 +1615,15 @@ int talloc_is_parent(const void *context, const void *ptr)
 	ret = _talloc_is_parent(context, ptr);
 	unlock();
 	return ret;
+}
+
+void talloc_set_allocator(void *(*malloc)(size_t size),
+			  void (*free)(void *ptr),
+			  void *(*realloc)(void *ptr, size_t size))
+{
+	tc_malloc = malloc;
+	tc_free = free;
+	tc_realloc = realloc;
 }
 
 void *talloc_add_external(const void *ctx,

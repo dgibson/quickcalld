@@ -1,6 +1,6 @@
+#include "config.h"
 #include <stdio.h>
 #include <string.h>
-#include "config.h"
 
 /**
  * daemonize - routine to turn a process into a well-behaved daemon.
@@ -35,7 +35,7 @@
  *		exit(0);
  *	}
  *
- * Licence: BSD (2 clause, ie. MIT)
+ * License: BSD-MIT
  */
 int main(int argc, char *argv[])
 {

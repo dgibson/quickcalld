@@ -1,6 +1,6 @@
+#include "config.h"
 #include <stdio.h>
 #include <string.h>
-#include "config.h"
 
 /**
  * array_size - routine for safely deriving the size of a visible array.
@@ -12,20 +12,25 @@
  * macro or constant.
  *
  * Example:
+ *	// Outputs "Initialized 32 values\n"
  *	#include <ccan/array_size/array_size.h>
  *	#include <stdlib.h>
+ *	#include <stdio.h>
  *
  *	// We currently use 32 random values.
  *	static unsigned int vals[32];
  *
- *	void init_values(void)
+ *	int main(void)
  *	{
  *		unsigned int i;
  *		for (i = 0; i < ARRAY_SIZE(vals); i++)
  *			vals[i] = random();
+ *		printf("Initialized %u values\n", i);
+ *		return 0;
  *	}
  *
- * Licence: LGPL (2 or any later version)
+ * License: CC0 (Public domain)
+ * Author: Rusty Russell <rusty@rustcorp.com.au>
  */
 int main(int argc, char *argv[])
 {

@@ -1,6 +1,6 @@
+#include "config.h"
 #include <stdio.h>
 #include <string.h>
-#include "config.h"
 
 /**
  * talloc - tree allocator routines
@@ -49,7 +49,8 @@
  *	}
  *
  *	// This function opens a writable pipe to the given command.
- *	struct command *open_output_cmd(const void *ctx, char *fmt, ...)
+ *	static struct command *open_output_cmd(const void *ctx,
+ *					       const char *fmt, ...)
  *	{
  *		va_list ap;
  *		struct command *cmd = talloc(ctx, struct command);
@@ -89,7 +90,7 @@
  *		return 0;
  *	}
  *
- * Licence: GPL (2 or any later version)
+ * License: LGPL (v2.1 or any later version)
  */
 int main(int argc, char *argv[])
 {
@@ -97,7 +98,13 @@ int main(int argc, char *argv[])
 		return 1;
 
 	if (strcmp(argv[1], "depends") == 0) {
+		printf("ccan/compiler\n");
 		printf("ccan/typesafe_cb\n");
+		return 0;
+	}
+
+	if (strcmp(argv[1], "testdepends") == 0) {
+		printf("ccan/failtest\n");
 		return 0;
 	}
 

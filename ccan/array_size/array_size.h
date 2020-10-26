@@ -1,3 +1,4 @@
+/* CC0 (Public domain) - see LICENSE file for details */
 #ifndef CCAN_ARRAY_SIZE_H
 #define CCAN_ARRAY_SIZE_H
 #include "config.h"
@@ -17,7 +18,7 @@
 /* Two gcc extensions.
  * &a[0] degrades to a pointer: a different type from an array */
 #define _array_size_chk(arr)						\
-	EXPR_BUILD_ASSERT(!__builtin_types_compatible_p(typeof(arr),	\
+	BUILD_ASSERT_OR_ZERO(!__builtin_types_compatible_p(typeof(arr),	\
 							typeof(&(arr)[0])))
 #else
 #define _array_size_chk(arr) 0

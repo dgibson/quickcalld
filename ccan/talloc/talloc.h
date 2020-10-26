@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <ccan/typesafe_cb/typesafe_cb.h>
+#include <ccan/compiler/compiler.h>
 #include "config.h"
 
 /*
@@ -37,16 +38,6 @@
 #define __TALLOC_STRING_LINE2__(s)   __TALLOC_STRING_LINE1__(s)
 #define __TALLOC_STRING_LINE3__  __TALLOC_STRING_LINE2__(__LINE__)
 #define __location__ __FILE__ ":" __TALLOC_STRING_LINE3__
-#endif
-
-#if HAVE_ATTRIBUTE_PRINTF
-/** Use gcc attribute to check printf fns.  a1 is the 1-based index of
- * the parameter containing the format, and a2 the index of the first
- * argument. Note that some gcc 2.x versions don't handle this
- * properly **/
-#define PRINTF_ATTRIBUTE(a1, a2) __attribute__ ((format (__printf__, a1, a2)))
-#else
-#define PRINTF_ATTRIBUTE(a1, a2)
 #endif
 
 /* try to make talloc_set_destructor() and talloc_steal() type safe,
@@ -88,6 +79,53 @@
 #define talloc(ctx, type) (type *)talloc_named_const(ctx, sizeof(type), #type)
 
 /**
+ * TALLOC_CTX - indicate that a pointer is used as a talloc parent.
+ *
+ * As talloc is a hierarchial memory allocator, every talloc chunk is a
+ * potential parent to other talloc chunks. So defining a separate type for a
+ * talloc chunk is not strictly necessary. TALLOC_CTX is defined nevertheless,
+ * as it provides an indicator for function arguments.
+ *
+ * Example:
+ *	struct foo {
+ *		int val;
+ *	};
+ *
+ *	static struct foo *foo_new(TALLOC_CTX *mem_ctx)
+ *	{
+ *		struct foo *foo = talloc(mem_ctx, struct foo);
+ *		if (foo)
+ *			foo->val = 0;
+ *	return foo;
+ *	}
+ */
+typedef void TALLOC_CTX;
+
+/**
+ * talloc_set - allocate dynamic memory for a type, into a pointer
+ * @ptr: pointer to the pointer to assign.
+ * @ctx: context to be parent of this allocation, or NULL.
+ *
+ * talloc_set() does a talloc, but also adds a destructor which will make the
+ * pointer invalid when it is freed.  This can find many use-after-free bugs.
+ *
+ * Note that the destructor is chained off a zero-length allocation, and so
+ * is not affected by talloc_set_destructor().
+ *
+ * Example:
+ *	unsigned int *b, *a;
+ *	a = talloc(NULL, unsigned int);
+ *	talloc_set(&b, a);
+ *	talloc_free(a);
+ *	*b = 1; // This will crash!
+ *
+ * See Also:
+ *	talloc.
+ */
+#define talloc_set(pptr, ctx) \
+	_talloc_set((pptr), (ctx), sizeof(&**(pptr)), __location__)
+
+/**
  * talloc_free - free talloc'ed memory and its children
  * @ptr: the talloced pointer to free
  *
@@ -119,10 +157,10 @@
  * See Also:
  *	talloc_set_destructor, talloc_unlink
  */
-int talloc_free(void *ptr);
+int talloc_free(const void *ptr);
 
 /**
- * talloc_set_destructor: set a destructor for when this pointer is freed
+ * talloc_set_destructor - set a destructor for when this pointer is freed
  * @ptr: the talloc pointer to set the destructor on
  * @destructor: the function to be called
  *
@@ -155,7 +193,7 @@ int talloc_free(void *ptr);
  *	return 0;
  * }
  *
- * int *open_file(const char *filename)
+ * static int *open_file(const char *filename)
  * {
  *	int *fd = talloc(NULL, int);
  *	*fd = open(filename, O_RDONLY);
@@ -172,7 +210,7 @@ int talloc_free(void *ptr);
  *	talloc, talloc_free
  */
 #define talloc_set_destructor(ptr, function)				      \
-	_talloc_set_destructor((ptr), typesafe_cb(int, (function), (ptr)))
+	_talloc_set_destructor((ptr), typesafe_cb(int, void *, (function), (ptr)))
 
 /**
  * talloc_zero - allocate zeroed dynamic memory for a type
@@ -214,7 +252,7 @@ int talloc_free(void *ptr);
  *	b = talloc_array(a, unsigned int, 100);
  *
  * See Also:
- *	talloc, talloc_zero_array
+ *	talloc, talloc_zero_array, talloc_array_length
  */
 #define talloc_array(ctx, type, count) (type *)_talloc_array(ctx, sizeof(type), count, #type)
 
@@ -231,13 +269,14 @@ int talloc_free(void *ptr);
  *
  * Example:
  *	void *mem = talloc_size(NULL, 100);
+ *	memset(mem, 0xFF, 100);
  *
  * See Also:
  *	talloc, talloc_array, talloc_zero_size
  */
 #define talloc_size(ctx, size) talloc_named_const(ctx, size, __location__)
 
-#ifdef HAVE_TYPEOF
+#if HAVE_TYPEOF
 /**
  * talloc_steal - change/set the parent context of a talloc pointer
  * @ctx: the new parent
@@ -327,13 +366,13 @@ void talloc_report_full(const void *ptr, FILE *f);
  *	a = talloc(NULL, unsigned int);
  *	b = talloc(NULL, unsigned int);
  *	c = talloc(a, unsigned int);
- *	// b also serves as a parent of c.
- *	talloc_reference(b, c);
+ *	// b also serves as a parent of c (don't care about errors)
+ *	(void)talloc_reference(b, c);
  */
 #define talloc_reference(ctx, ptr) (_TALLOC_TYPEOF(ptr))_talloc_reference((ctx),(ptr))
 
 /**
- * talloc_unlink: remove a specific parent from a talloc pointer.
+ * talloc_unlink - remove a specific parent from a talloc pointer.
  * @context: the parent to remove
  * @ptr: the talloc pointer
  *
@@ -348,13 +387,14 @@ void talloc_report_full(const void *ptr, FILE *f);
  * Usually you can just use talloc_free() instead of talloc_unlink(), but
  * sometimes it is useful to have the additional control on which parent is
  * removed.
+ *
  * Example:
  *	unsigned int *a, *b, *c;
  *	a = talloc(NULL, unsigned int);
  *	b = talloc(NULL, unsigned int);
  *	c = talloc(a, unsigned int);
  *	// b also serves as a parent of c.
- *	talloc_reference(b, c);
+ *	(void)talloc_reference(b, c);
  *	talloc_unlink(b, c);
  */
 int talloc_unlink(const void *context, void *ptr);
@@ -540,7 +580,7 @@ char *talloc_strndup(const void *t, const char *p, size_t n);
  *
  *   talloc_set_name_const(ptr, ptr)
  */
-char *talloc_asprintf(const void *t, const char *fmt, ...) PRINTF_ATTRIBUTE(2,3);
+char *talloc_asprintf(const void *t, const char *fmt, ...) PRINTF_FMT(2,3);
 
 /**
  * talloc_append_string - concatenate onto a tallocated string 
@@ -555,7 +595,7 @@ char *talloc_asprintf(const void *t, const char *fmt, ...) PRINTF_ATTRIBUTE(2,3)
  *
  *    talloc_set_name_const(ptr, ptr)
  */
-char *talloc_append_string(char *orig, const char *append);
+char *WARN_UNUSED_RESULT talloc_append_string(char *orig, const char *append);
 
 /**
  * talloc_asprintf_append - sprintf onto the end of a talloc buffer.
@@ -569,7 +609,8 @@ char *talloc_append_string(char *orig, const char *append);
  * equivalent to:
  *   talloc_set_name_const(ptr, ptr)
  */
-char *talloc_asprintf_append(char *s, const char *fmt, ...) PRINTF_ATTRIBUTE(2,3);
+char *WARN_UNUSED_RESULT talloc_asprintf_append(char *s, const char *fmt, ...)
+	PRINTF_FMT(2,3);
 
 /**
  * talloc_vasprintf - vsprintf into a talloc buffer.
@@ -585,7 +626,8 @@ char *talloc_asprintf_append(char *s, const char *fmt, ...) PRINTF_ATTRIBUTE(2,3
  *
  *   talloc_set_name_const(ptr, ptr)
  */
-char *talloc_vasprintf(const void *t, const char *fmt, va_list ap) PRINTF_ATTRIBUTE(2,0);
+char *talloc_vasprintf(const void *t, const char *fmt, va_list ap)
+	PRINTF_FMT(2,0);
 
 /**
  * talloc_vasprintf_append - sprintf onto the end of a talloc buffer.
@@ -596,7 +638,8 @@ char *talloc_vasprintf(const void *t, const char *fmt, va_list ap) PRINTF_ATTRIB
  * The talloc_vasprintf_append() function is equivalent to
  * talloc_asprintf_append(), except it takes a va_list.
  */
-char *talloc_vasprintf_append(char *s, const char *fmt, va_list ap) PRINTF_ATTRIBUTE(2,0);
+char *WARN_UNUSED_RESULT talloc_vasprintf_append(char *s, const char *fmt, va_list ap)
+	PRINTF_FMT(2,0);
 
 /**
  * talloc_set_type - force the name of a pointer to a particular type
@@ -672,7 +715,8 @@ int talloc_increase_ref_count(const void *ptr);
  * without releasing the name. All of the memory is released when the ptr is
  * freed using talloc_free().
  */
-const char *talloc_set_name(const void *ptr, const char *fmt, ...) PRINTF_ATTRIBUTE(2,3);
+const char *talloc_set_name(const void *ptr, const char *fmt, ...)
+	PRINTF_FMT(2,3);
 
 /**
  * talloc_set_name_const - set a talloc pointer name to a string constant
@@ -703,7 +747,7 @@ void talloc_set_name_const(const void *ptr, const char *name);
  *   talloc_set_name(ptr, fmt, ....);
  */
 void *talloc_named(const void *context, size_t size, 
-		   const char *fmt, ...) PRINTF_ATTRIBUTE(3,4);
+		   const char *fmt, ...) PRINTF_FMT(3,4);
 
 /**
  * talloc_named_const - create a specifically-named talloc pointer
@@ -746,7 +790,7 @@ void *talloc_check_name(const void *ptr, const char *name);
  *
  *   talloc_named(NULL, 0, fmt, ...);
  */
-void *talloc_init(const char *fmt, ...) PRINTF_ATTRIBUTE(1,2);
+void *talloc_init(const char *fmt, ...) PRINTF_FMT(1,2);
 
 /**
  * talloc_total_size - get the bytes used by the pointer and its children
@@ -892,12 +936,25 @@ void talloc_enable_leak_report_full(void);
 void *talloc_autofree_context(void);
 
 /**
- * talloc_get_size - get the size of an allocation
+ * talloc_array_length - get the number of elements in a talloc array
+ * @p: the talloc pointer whose allocation to measure.
+ *
+ * This assumes that @p has been allocated as the same type.  NULL returns 0.
+ *
+ * See Also:
+ *	talloc_get_size
+ */
+#define talloc_array_length(p) (talloc_get_size(p) / sizeof((*p)))
+
+/**
+ * talloc_get_size - get the requested size of an allocation
  * @ctx: the talloc pointer whose allocation to measure.
  *
  * This function lets you know the amount of memory alloced so far by this
- * context. It does NOT account for subcontext memory.  This can be used to
- * calculate the size of an array.
+ * context. It does NOT account for subcontext memory.
+ *
+ * See Also:
+ *	talloc_array_length
  */
 size_t talloc_get_size(const void *ctx);
 
@@ -912,6 +969,19 @@ size_t talloc_get_size(const void *ctx);
  * is a parent of another context.
  */
 void *talloc_find_parent_byname(const void *ctx, const char *name);
+
+/**
+ * talloc_set_allocator - set the allocations function(s) for talloc.
+ * @malloc: the malloc function
+ * @free: the free function
+ * @realloc: the realloc function
+ *
+ * Instead of using the standard malloc, free and realloc, talloc will use
+ * these replacements.  @realloc will never be called with size 0 or ptr NULL.
+ */
+void talloc_set_allocator(void *(*malloc)(size_t size),
+			  void (*free)(void *ptr),
+			  void *(*realloc)(void *ptr, size_t size));
 
 /**
  * talloc_add_external - create an externally allocated node
@@ -940,11 +1010,12 @@ void *talloc_add_external(const void *ctx,
 
 /* The following definitions come from talloc.c  */
 void *_talloc(const void *context, size_t size);
+void _talloc_set(void *ptr, const void *ctx, size_t size, const char *name);
 void _talloc_set_destructor(const void *ptr, int (*destructor)(void *));
 size_t talloc_reference_count(const void *ptr);
 void *_talloc_reference(const void *context, const void *ptr);
 
-void *_talloc_realloc(const void *context, void *ptr, size_t size, const char *name);
+void *WARN_UNUSED_RESULT _talloc_realloc(const void *context, void *ptr, size_t size, const char *name);
 void *talloc_parent(const void *ptr);
 const char *talloc_parent_name(const void *ptr);
 void *_talloc_steal(const void *new_ctx, const void *ptr);
@@ -953,7 +1024,7 @@ void *_talloc_zero(const void *ctx, size_t size, const char *name);
 void *_talloc_memdup(const void *t, const void *p, size_t size, const char *name);
 void *_talloc_array(const void *ctx, size_t el_size, unsigned count, const char *name);
 void *_talloc_zero_array(const void *ctx, size_t el_size, unsigned count, const char *name);
-void *_talloc_realloc_array(const void *ctx, void *ptr, size_t el_size, unsigned count, const char *name);
+void *WARN_UNUSED_RESULT _talloc_realloc_array(const void *ctx, void *ptr, size_t el_size, unsigned count, const char *name);
 void *talloc_realloc_fn(const void *context, void *ptr, size_t size);
 void talloc_show_parents(const void *context, FILE *file);
 int talloc_is_parent(const void *context, const void *ptr);
