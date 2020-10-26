@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <stdint.h>
 #include <string.h>
 
 #include <errno.h>
@@ -61,7 +62,7 @@ static void mute_btn(struct quickcall *qc, struct hiddev_event *ev, void *data)
 
 static void volume_btn(struct quickcall *qc, struct hiddev_event *ev, void *data)
 {
-	int delta = (int)data;
+	int delta = (uintptr_t)data;
 	quickcall_update_volume(qc, delta);
 }
 
